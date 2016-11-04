@@ -17,5 +17,4 @@ class Client:
 
     def reply(self, data):
         rep = handle(data)
-        print rep
         self.conn.sendall(rep)
