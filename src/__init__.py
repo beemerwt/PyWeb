@@ -1,5 +1,6 @@
 import socket
 
+from Cacher import cache_all
 from Server import Server
 
 HOST = ''
@@ -8,6 +9,7 @@ isRunning = True
 
 
 def __init__():
+    cache_all()
     while isRunning:
         sock = socket.socket()
         sock.bind((HOST, PORT))

@@ -1,6 +1,10 @@
 from HTTP import handle
 
 
+def reply(data):
+    return handle(data).generate().replace("\n", "\r\n")
+
+
 class Client:
     def __init__(self, conn, addr):
         self.conn = conn
@@ -10,12 +14,9 @@ class Client:
         while 1:
             data = conn.recv(1024)
             if not data: break
-            print "Received:", self.addr
-            self.reply(data)
+            print "Data received:", data
+            p = reply(data)
+            print p
+
         print "Disconnected:", self.addr
         self.conn.close()
-
-    def reply(self, data):
-        rep = handle(data)
-        print rep
-        self.conn.sendall(rep)
