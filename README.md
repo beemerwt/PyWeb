@@ -2,7 +2,7 @@
 Apache doesn't run very well on Windows machines, so I'm creating this as a more efficient means to use the HyperText Transfer Protocol on any platform.
 
 ## Caching
-This webserver is capable of creating it's own cache using LZ77. You can turn this on or off in the Config.ini file located in the resources folder.
+This webserver is capable of creating it's own cache using LZ77. You can turn this on or off in the Config.ini file located in the resources folder. It is enabled by default and generates a compressed file. It *is* recommended.
 
 ## Launching Instructions
 1. Install Python 2.7
