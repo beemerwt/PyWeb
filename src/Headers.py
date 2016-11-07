@@ -1,25 +1,7 @@
-from re import compile
+from hashlib import md5
 from time import time, strftime, gmtime
 
-from Statuses import STATUS_CODE
-
-CRLF = "\r\n"
-
-
-class StatusLine:  # StatusLine.response is the line you want.
-    re_ver = compile("HTTP/(\d).(\d)")
-    line = "HTTP/{}.{} {} {}"
-
-    def __init__(self, ver, code, opt=None):
-        ver = self.re_ver.match(ver).groups(0)
-        if not ver:
-            ver = [1, 1]  # Default to 1.1 (Our server)
-        if not opt:
-            if not STATUS_CODE.__contains__(code):
-                code = 500  # Default to 500 if we don't have the code. It's an error.
-            self.line = self.line.format(ver[0], ver[1], code, STATUS_CODE[code]) + CRLF
-        else:
-            self.line = self.line.format(ver[0], ver[1], code, opt) + CRLF
+from Config import LF
 
 
 class General:
@@ -38,21 +20,21 @@ class General:
     # Generate general header in order.
     def generate(self):
         header = ""
-        if self.cache_control:      header += "Cache-Control: {}".format(self.cache_control)
-        if self.connection:         header += "Connection: {}".format(self.connection)
-        if self.date:               header += "Date: {}".format(self.date)
-        if self.pragma:             header += "Pragma: {}".format(self.pragma)
-        if self.trailer:            header += "Trailer: {}".format(self.trailer)
-        if self.transfer_encoding:  header += "Transfer-Encoding: {}".format(self.transfer_encoding)
-        if self.upgrade:            header += "Upgrade: {}".format(self.upgrade)
-        if self.via:                header += "Via: {}".format(self.via)
-        if self.warning:            header += "Warning: {}".format(self.warning)
+        if self.cache_control:      header += "Cache-Control: {}".format(self.cache_control) + LF
+        if self.connection:         header += "Connection: {}".format(self.connection) + LF
+        if self.date:               header += "Date: {}".format(self.date) + LF
+        if self.pragma:             header += "Pragma: {}".format(self.pragma) + LF
+        if self.trailer:            header += "Trailer: {}".format(self.trailer) + LF
+        if self.transfer_encoding:  header += "Transfer-Encoding: {}".format(self.transfer_encoding) + LF
+        if self.upgrade:            header += "Upgrade: {}".format(self.upgrade) + LF
+        if self.via:                header += "Via: {}".format(self.via) + LF
+        if self.warning:            header += "Warning: {}".format(self.warning) + LF
         return header
 
 
 class Entity:
-    def __init__(self, a=None, ce=None, cl=None, clen=0, cloc=None, cmd5=None,
-                 crange=None, ctype=None, exp=None, mod=None):
+    def __init__(self, a=None, ce=None, cl=None, clen=None, cloc=None, cmd5=None,
+                 crange=None, ctype=None, vary=None, exp=None, mod=None):
         self.allow = a
         self.c_encoding = ce
         self.c_language = cl
@@ -61,31 +43,24 @@ class Entity:
         self.c_md5 = cmd5
         self.c_range = crange
         self.c_type = ctype
+        self.vary = vary
         self.expires = exp
         self.last_modified = strftime("%a, %d %b %Y %H:%M:%S GMT", gmtime()) if mod else None
 
     def generate(self):
         header = ""
-        if self.allow:          header += "Allow: {}".format(self.allow)
-        if self.c_encoding:     header += "Content-Encoding: {}".format(self.c_encoding)
-        if self.c_language:     header += "Content-Language: {}".format(self.c_language)
-        if self.c_length:       header += "Content-Length: {}".format(self.c_length)
-        header += "Vary: Accept-Encoding"
-        if self.c_location:     header += "Content-Location: {}".format(self.c_location + 4)
-        if self.c_md5:          header += "Content-MD5: {}".format(self.c_md5)
-        if self.c_range:        header += "Content-Range: {}".format(self.c_range)
-        if self.c_type:         header += "Content-Type: {}".format(self.c_type)
-        if self.expires:        header += "Expires: {}".format(self.expires)
-        if self.last_modified:  header += "Last-Modified: {}".format(self.last_modified)
+        if self.allow is not None:          header += "Allow: {}".format(self.allow) + LF
+        if self.c_encoding is not None:     header += "Content-Encoding: {}".format(self.c_encoding) + LF
+        if self.c_language is not None:     header += "Content-Language: {}".format(self.c_language) + LF
+        if self.c_length is not None:       header += "Content-Length: {}".format(self.c_length) + LF
+        if self.c_location is not None:     header += "Content-Location: {}".format(self.c_location) + LF
+        if self.c_md5 is not None:          header += "Content-MD5: {}".format(self.c_md5) + LF
+        if self.c_range is not None:        header += "Content-Range: {}".format(self.c_range) + LF
+        if self.c_type is not None:         header += "Content-Type: {}".format(self.c_type) + LF
+        if self.vary is not None:           header += "Vary: Accept-Encoding" + LF
+        if self.expires is not None:        header += "Expires: {}".format(self.expires) + LF
+        if self.last_modified is not None:  header += "Last-Modified: {}".format(self.last_modified) + LF
         return header
-
-
-class Builder:
-    def __init__(self, *header):
-        return
-
-    def generate(self):
-        return
 
 
 class Response:
@@ -94,7 +69,7 @@ class Response:
         self.ranges = ranges
         self.start_time = time() if age else None
         self.age = age
-        self.etag = etag
+        self.etag = "\"" + md5(etag).hexdigest() + "\"" if etag is not None else None
         self.location = location
         self.proxy_authenticate = proxy_authenticate
         self.retry = retry
@@ -104,13 +79,13 @@ class Response:
 
     def generate(self):
         header = ""
-        if self.ranges:             header += "Accept-Ranges: {}".format(self.ranges)
-        if self.age:                header += "Age: {}".format(int(round(time() - self.start_time)))
-        if self.etag:               header += "E-Tag: {}".format(self.etag)
-        if self.location:           header += "Location: {}".format(self.location)
-        if self.proxy_authenticate: header += "Proxy-Authenticate: {}".format(self.proxy_authenticate)
-        if self.retry:              header += "Retry: {}".format(self.retry)
-        if self.server:             header += "Server: {}".format(self.server)
-        if self.vary:               header += "Vary: {}".format(self.vary)
-        if self.www_authenticate:   header += "WWW-Authenticate: {}".format(self.www_authenticate)
+        if self.ranges:             header += "Accept-Ranges: {}".format(self.ranges) + LF
+        if self.age:                header += "Age: {}".format(int(round(time() - self.start_time))) + LF
+        if self.etag:               header += "E-Tag: {}".format(self.etag) + LF
+        if self.location:           header += "Location: {}".format(self.location) + LF
+        if self.proxy_authenticate: header += "Proxy-Authenticate: {}".format(self.proxy_authenticate) + LF
+        if self.retry:              header += "Retry: {}".format(self.retry) + LF
+        if self.server:             header += "Server: {}".format(self.server) + LF
+        if self.vary:               header += "Vary: {}".format(self.vary) + LF
+        if self.www_authenticate:   header += "WWW-Authenticate: {}".format(self.www_authenticate) + LF
         return header

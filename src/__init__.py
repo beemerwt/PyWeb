@@ -6,6 +6,7 @@ from Server import Server
 HOST = ''
 PORT = 80
 isRunning = True
+checksums = []
 
 
 def __init__():

@@ -41,3 +41,4 @@ STATUS_CODE = {
     504: 'Gateway Timeout',  # | Section 6.6.5            |
     505: 'HTTP Version Not Supported',  # | Section 6.6.6            |
 }
+

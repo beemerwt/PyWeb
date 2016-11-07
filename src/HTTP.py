@@ -2,12 +2,14 @@ from os.path import isfile
 from re import compile
 
 from Cacher import get_file
-from Config import DOCUMENT_ROOT  # DocumentRoot Constant
-from Headers import Response as HResponse
-from Headers import StatusLine, General, Entity
+from Config import DOCUMENT_ROOT, CRLF  # DocumentRoot Constant
+from Headers import Entity, General, Response as HResponse
+from Status import STATUS_CODE
 
 default_files = ['index.htm', 'index.html', 'home.html', 'index.php', 'portal.php']
-request_line = compile("(\w+) (\S+) (HTTP/\d.\d)")
+request_line = compile("(\w+) (\S+) HTTP/(\d).(\d)")
+header_line = compile("([\w-]+):")
+SP = " "
 
 
 def safe_open(path):
@@ -41,50 +43,30 @@ def sort_by_q(data):
 
 
 class Response:
-    _header = ''
-    _body = ''
-
     def __init__(self, request):
         self.request = request
         self.status = request.request
-        if self.status['Method'] == "OPTIONS": print "OPTIONS"
+        self.status_code = 500  # Default to internal server error.
+        self.response_ver = "HTTP/{}.{}".format(self.status['HTTP-Version'][0], self.status['HTTP-Version'][1])
         if self.status['Method'] == "GET":
-            status_code = check_file(self.status['Request-URI'])
-            if status_code == 404:
-                self.header_404()
-            elif status_code == 200:
-                self.generate(self.status['Request-URI'])
-            else:
-                self.header_500()
-        if self.status['Method'] == "HEAD": print "HEAD"
-        if self.status['Method'] == "POST": print "POST"
-        if self.status['Method'] == "PUT": print "PUT"
-        if self.status['Method'] == "DELETE": print "DELETE"
-        if self.status['Method'] == "TRACE": print "TRACE"
-        if self.status['Method'] == "CONNECT": print "CONNECT"
+            self.status_code = check_file(self.status['Request-URI'])
+        self.reqline = self.response_ver + SP + str(self.status_code) + SP + STATUS_CODE[self.status_code] + CRLF
 
-    def header_404(self):
-        self._header += StatusLine(self.status['HTTP-Version'], 404).line + \
-                        General().generate() + \
-                        "Location: {}".format(self.status['Request-URI']) + \
-                        "Retry-After: {}".format(120)
-
-    def header_500(self):
-        self._header += StatusLine(self.status['HTTP-Version'],
-                                   500).line + General().generate() + HResponse().generate()
-
-    # "Age: {}".format(int(round((time() - self._start) * 1000))) + CRLF + \
-    def generate(self, body_file=None):
-        if body_file is None:
-            return self._header + self._body
+    def generate(self):
+        message = self.reqline
+        if self.status['Method'] == "GET":
+            if self.status_code == 404:
+                message += General().generate()
+                message += HResponse(retry=120).generate()
+                message += Entity(clen=0).generate()
         else:
-            with safe_open(self.status['Request-URI']) as content_file:
-                content = content_file.read()
-            p = StatusLine(self.status['HTTP-Version'], 200).line + \
-                General(trans_encode="gzip").generate() + \
-                Entity(ctype="text/html", cl=self.request.enforces['language'][0], clen=content.__len__()).generate() + \
-                content
-            return p
+            message += General().generate()
+            message += HResponse().generate()
+            message += Entity(clen=0).generate()
+
+        message += CRLF
+        print "Responding:", self.reqline
+        return message
 
 
 class Request:
@@ -98,40 +80,23 @@ class Request:
         'max_forwards': None,
     }
 
-    def __init__(self, data):
-        self.func_dict = {
-            'Accept:': self.accept,
-            'Accept-Charset:': self.accept_charset,
-            'Accept-Encoding:': self.accept_encoding,
-            'Accept-Language:': self.accept_language,
-            'Authorization:': self.authorization,
-            'Expect:': self.expect,
-            'From:': self._from,
-            'Host:': self.host,
-            'If-Match:': self.if_match,
-            'If-Modified-Since:': self.if_modified_since,
-            'If-None-Match:': self.if_none_match,
-            'If-Range': self.if_range,
-            'If-Unmodified-Since:': self.if_modified_since,
-            'Max-Forwards:': self.max_forwards,
-            'Proxy-Authorization:': self.proxy_authorization,
-            'Range:': self.range,
-            'Referer:': self.referer,
-            'TE:': self.te,
-            'User-Agent:': self.user_agent
-        }
-
+    def __init__(self, addr, data):
+        self.addr = addr
         self.lines = data.splitlines()
         self.message = request_line.match(self.lines[0]).groups(0)
         self.request = {  # Request Line
             'Method': self.message[0],
             'Request-URI': self.message[1],
-            'HTTP-Version': self.message[2]
+            'HTTP-Version': [self.message[2], self.message[3]]
         }
+        print "Request Received:", self.lines[0], addr
         for line in self.lines:
             # If it exists, use it, if we're being fooled, don't.
-            if self.func_dict.__contains__(line.split(" ")[0]):
-                self.func_dict[line.split(" ")[0]](line)
+            if self.lines[0] == line:  # Skip the first line
+                continue
+            func = header_line.match(line).groups()[0].replace("-", "_").lower()  # Convert message to func-readable
+            if self.__contains__(func):
+                self[func](line)
 
     # For all functions below, data is a string of the full line.
     def accept(self, data):
@@ -200,7 +165,13 @@ class Request:
     def user_agent(self, data):
         return
 
+    def __getitem__(self, name):
+        return getattr(self, name)
 
-def handle(data):
-    request = Request(data)
+    def __contains__(self, item):
+        return getattr(self, item)
+
+
+def handle(addr, data):
+    request = Request(addr, data)
     return Response(request)
