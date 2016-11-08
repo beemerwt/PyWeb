@@ -1,35 +1,13 @@
-from os.path import isfile
 from re import compile
 
-from Cacher import get_file
-from Config import DOCUMENT_ROOT, CRLF  # DocumentRoot Constant
+import FileManager
+from Config import CRLF  # DocumentRoot Constant
 from Headers import Entity, General, Response as HResponse
 from Status import STATUS_CODE
 
-default_files = ['index.htm', 'index.html', 'home.html', 'index.php', 'portal.php']
 request_line = compile("(\w+) (\S+) HTTP/(\d).(\d)")
 header_line = compile("([\w-]+):")
 SP = " "
-
-
-def safe_open(path):
-    if path == "/":
-        for name in default_files:
-            if isfile(DOCUMENT_ROOT + name):
-                return get_file(DOCUMENT_ROOT + name)
-    path = path.replace("/", "", 1)  # Remove first occurrence of "/"
-    return get_file(DOCUMENT_ROOT + path)
-
-
-def check_file(path):
-    if path == "/":
-        for name in default_files:
-            if isfile(DOCUMENT_ROOT + name):
-                return 200
-    path = path.replace("/", "", 1)  # Remove first occurrence of "/"
-    if isfile(DOCUMENT_ROOT + path):
-        return 200
-    return 404
 
 
 def sort_by_q(data):
@@ -44,21 +22,30 @@ def sort_by_q(data):
 
 class Response:
     def __init__(self, request):
-        self.request = request
-        self.status = request.request
+        self.major_ver = request.request['HTTP-Version'][0]
+        self.minor_ver = request.request['HTTP-Version'][1]
+        self.response_ver = "HTTP/{}.{}".format(self.major_ver, self.minor_ver)
+        self.path = request.request['Request-URI']
+        self.method = request.request['Method']
         self.status_code = 500  # Default to internal server error.
-        self.response_ver = "HTTP/{}.{}".format(self.status['HTTP-Version'][0], self.status['HTTP-Version'][1])
-        if self.status['Method'] == "GET":
-            self.status_code = check_file(self.status['Request-URI'])
+        if self.method == "GET":
+            self.status_code = FileManager.check(self.path)
         self.reqline = self.response_ver + SP + str(self.status_code) + SP + STATUS_CODE[self.status_code] + CRLF
 
     def generate(self):
         message = self.reqline
-        if self.status['Method'] == "GET":
+        if self.method == "GET":
             if self.status_code == 404:
                 message += General().generate()
                 message += HResponse(retry=120).generate()
                 message += Entity(clen=0).generate()
+            elif self.status_code == 200:
+                message += General().generate()
+                message += HResponse(retry=120).generate()
+                message += Entity(ctype="text/html", clen=FileManager.size(self.path), ce="gzip").generate()
+                message += CRLF
+                message += FileManager.open(self.path).read()
+                message += CRLF
         else:
             message += General().generate()
             message += HResponse().generate()
@@ -94,9 +81,11 @@ class Request:
             # If it exists, use it, if we're being fooled, don't.
             if self.lines[0] == line:  # Skip the first line
                 continue
-            func = header_line.match(line).groups()[0].replace("-", "_").lower()  # Convert message to func-readable
-            if self.__contains__(func):
-                self[func](line)
+            func = header_line.match(line)
+            if func is not None:
+                func = func.groups()[0].replace("-", "_").lower()  # Convert message to func-readable
+                if self.__contains__(func):
+                    self[func](line)
 
     # For all functions below, data is a string of the full line.
     def accept(self, data):
@@ -121,6 +110,12 @@ class Request:
         self.enforces['language'] = sort_by_q(data)
 
     def authorization(self, data):
+        return
+
+    def cache_control(self, data):
+        return
+
+    def connection(self, data):
         return
 
     def expect(self, data):
@@ -165,11 +160,14 @@ class Request:
     def user_agent(self, data):
         return
 
+    def upgrade_insecure_requests(self, data):
+        return
+
     def __getitem__(self, name):
         return getattr(self, name)
 
     def __contains__(self, item):
-        return getattr(self, item)
+        return getattr(self, item, False)
 
 
 def handle(addr, data):

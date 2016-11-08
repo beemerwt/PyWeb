@@ -1,12 +1,10 @@
 import socket
 
 from Cacher import cache_all
+from Definitions import HOST, PORT
 from Server import Server
 
-HOST = ''
-PORT = 80
 isRunning = True
-checksums = []
 
 
 def __init__():
