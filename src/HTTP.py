@@ -5,11 +5,26 @@ from Cacher import get_checksum
 from Config import CRLF  # DocumentRoot Constant
 from FileManager import get_absolute
 from Headers import Entity, General, Response as HResponse
+from os.path import splitext
 from Status import STATUS_CODE
 
 request_line = compile("(\w+) (\S+) HTTP/(\d).(\d)")
 header_line = compile("([\w-]+):")
 SP = " "
+
+
+def get_type(data):
+    data = splitext(data)[1]
+    if data == ".html" or data == ".htm" or data == ".php": return "text/html"
+    if data == ".png": return "image/png"
+    if data == ".bmp": return "image/bmp"
+    if data == ".gif": return "image/gif"
+    if data == ".css" or data == ".xcss": return "text/css"
+    if data == ".js": return "text/js"
+    if data == ".jpeg" or data == ".jpg": return "image/jpeg"
+    if data == ".json": return "application/json"
+    if data == ".pdf": return "application/pdf"
+    return "text/plain"
 
 
 def sort_by_q(data):
@@ -44,7 +59,8 @@ class Response:
                 response_header.retry = 120
                 entity_header.c_length = 0
             elif self.status_code == 200:
-                entity_header.c_type = "text/html"
+                general_header.cach = "max-age=120"
+                entity_header.c_type = get_type(self.path)
                 entity_header.c_length = FileManager.size(self.path)
                 entity_header.c_encoding = "gzip"
                 response_header.retry = 120

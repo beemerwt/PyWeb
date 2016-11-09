@@ -12,15 +12,14 @@ types = ("*.html", "*.htm", "*.php")
 
 
 def get_cached_file(path):
-    if is_cached(path):
-        return path + ".gz"
-    else:
-        compress(path)
+    if is_cached(path): return path + ".gz"
+    else: compress(path)
     return path + '.gz'
 
 
 def get_checksum(path):
     if path is None: return
+    print "Getting checksum of:", path
     path = get_cached_file(path)
     if path in CHECKSUMS: return CHECKSUMS[path]
     c = md5(open(path, 'rb').read()).hexdigest()
@@ -29,6 +28,7 @@ def get_checksum(path):
 
 
 def compress(path):
+    print "Creating cache of file:", path
     with open(path, 'rb') as f_in, gzip.open(path + '.gz', 'wb') as f_out:
         shutil.copyfileobj(f_in, f_out)
 

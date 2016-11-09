@@ -1,12 +1,12 @@
 import socket
 
-from Cacher import cache_all
+from Cacher import cache_all, clear_cache
 from Definitions import HOST, PORT
 from Server import Server
 
 isRunning = True
 
-
+clear_cache()
 def __init__():
     cache_all()
     while isRunning:
