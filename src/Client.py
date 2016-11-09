@@ -3,18 +3,16 @@ from HTTP import handle
 
 class Client:
     def __init__(self, conn, addr):
+        print "Connected:", addr
         self.conn = conn
         self.addr = addr
-        print "Client added:", self.addr
-        self.conn.sendall("")
         while 1:
             data = conn.recv(1024)
             if not data: break
-            print "Received:", self.addr
-            self.reply(data)
+            self.reply(addr, data)
         print "Disconnected:", self.addr
         self.conn.close()
 
-    def reply(self, data):
-        rep = handle(data)
-        self.conn.sendall(rep)
+    def reply(self, addr, data):
+        resp = handle(addr, data).generate()
+        self.conn.sendall(resp)

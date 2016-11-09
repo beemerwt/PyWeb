@@ -1,13 +1,14 @@
 import socket
 
+from Cacher import cache_all
+from Definitions import HOST, PORT
 from Server import Server
 
-HOST = ''
-PORT = 80
 isRunning = True
 
 
 def __init__():
+    cache_all()
     while isRunning:
         sock = socket.socket()
         sock.bind((HOST, PORT))
