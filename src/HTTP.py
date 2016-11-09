@@ -1,7 +1,9 @@
 from re import compile
 
 import FileManager
+from Cacher import get_checksum
 from Config import CRLF  # DocumentRoot Constant
+from FileManager import get_absolute
 from Headers import Entity, General, Response as HResponse
 from Status import STATUS_CODE
 
@@ -25,7 +27,7 @@ class Response:
         self.major_ver = request.request['HTTP-Version'][0]
         self.minor_ver = request.request['HTTP-Version'][1]
         self.response_ver = "HTTP/{}.{}".format(self.major_ver, self.minor_ver)
-        self.path = request.request['Request-URI']
+        self.path = get_absolute(request.request['Request-URI'])
         self.method = request.request['Method']
         self.status_code = 500  # Default to internal server error.
         if self.method == "GET":
@@ -33,27 +35,29 @@ class Response:
         self.reqline = self.response_ver + SP + str(self.status_code) + SP + STATUS_CODE[self.status_code] + CRLF
 
     def generate(self):
-        message = self.reqline
+        general_header = General()
+        response_header = HResponse(etag=get_checksum(self.path))
+        entity_header = Entity()
+        message_body = ""
         if self.method == "GET":
             if self.status_code == 404:
-                message += General().generate()
-                message += HResponse(retry=120).generate()
-                message += Entity(clen=0).generate()
+                response_header.retry = 120
+                entity_header.c_length = 0
             elif self.status_code == 200:
-                message += General().generate()
-                message += HResponse(retry=120).generate()
-                message += Entity(ctype="text/html", clen=FileManager.size(self.path), ce="gzip").generate()
-                message += CRLF
-                message += FileManager.open(self.path).read()
-                message += CRLF
+                entity_header.c_type = "text/html"
+                entity_header.c_length = FileManager.size(self.path)
+                entity_header.c_encoding = "gzip"
+                response_header.retry = 120
+                message_body += FileManager.open(self.path).read()
+                message_body += CRLF
         else:
-            message += General().generate()
-            message += HResponse().generate()
-            message += Entity(clen=0).generate()
+            entity_header.c_length = 0
 
-        message += CRLF
+        general_header.update()
+        entity_header.update()
+        response_header = response_header.generate()
         print "Responding:", self.reqline
-        return message
+        return self.reqline + general_header.header + response_header + entity_header.header + CRLF + message_body
 
 
 class Request:
