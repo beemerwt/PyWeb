@@ -1,11 +1,11 @@
+from os.path import splitext
 from re import compile
 
 import FileManager
 from Cacher import get_checksum
 from Config import CRLF  # DocumentRoot Constant
-from FileManager import get_absolute
+from FileManager import get_safe
 from Headers import Entity, General, Response as HResponse
-from os.path import splitext
 from Status import STATUS_CODE
 
 request_line = compile("(\w+) (\S+) HTTP/(\d).(\d)")
@@ -42,7 +42,7 @@ class Response:
         self.major_ver = request.request['HTTP-Version'][0]
         self.minor_ver = request.request['HTTP-Version'][1]
         self.response_ver = "HTTP/{}.{}".format(self.major_ver, self.minor_ver)
-        self.path = get_absolute(request.request['Request-URI'])
+        self.path = get_safe(request.request['Request-URI'])
         self.method = request.request['Method']
         self.status_code = 500  # Default to internal server error.
         if self.method == "GET":

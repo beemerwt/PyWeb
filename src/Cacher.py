@@ -2,59 +2,66 @@ import gzip
 import shutil
 from glob import glob
 from hashlib import md5
-from os import remove
-from os.path import isfile
+from os import remove, makedirs
+from os.path import isfile, relpath, exists, dirname
 
 from Config import DOCUMENT_ROOT
 from Definitions import CHECKSUMS
 
 types = ("*.html", "*.htm", "*.php")
+CACHE_ROOT = "../cache/"
 
 
-def get_cached_file(path):
-    if is_cached(path): return path + ".gz"
-    else: compress(path)
-    return path + '.gz'
+def get_cached_file(_file):
+    if is_cached(_file):
+        return relpath(CACHE_ROOT + _file + ".gz")
+    else:
+        compress(_file)
+    return relpath(CACHE_ROOT + _file + '.gz')
 
 
 def get_checksum(path):
     if path is None: return
-    print "Getting checksum of:", path
     path = get_cached_file(path)
+    print "Getting checksum of", path
     if path in CHECKSUMS: return CHECKSUMS[path]
     c = md5(open(path, 'rb').read()).hexdigest()
     CHECKSUMS[path] = c
     return CHECKSUMS[path]
 
 
-def compress(path):
-    print "Creating cache of file:", path
-    with open(path, 'rb') as f_in, gzip.open(path + '.gz', 'wb') as f_out:
+def compress(_file):
+    print "Creating cache of file:", _file
+    if not exists(CACHE_ROOT + _file):
+        makedirs(dirname(CACHE_ROOT + _file))
+    with open(relpath(DOCUMENT_ROOT + _file), 'rb') as f_in, gzip.open(CACHE_ROOT + _file + '.gz', 'wb') as f_out:
         shutil.copyfileobj(f_in, f_out)
 
 
-def decompress(path):
-    with gzip.open(path, 'rb') as f:
+def decompress(_file):
+    with gzip.open(CACHE_ROOT + _file, 'rb') as f:
         file_content = f.read()
         print file_content
 
 
 def cache_all():
-    print "Caching all resources in", DOCUMENT_ROOT
+    print "Caching all resources in", CACHE_ROOT
     files_grabbed = []
+    d_root_length = DOCUMENT_ROOT.__len__()
     for files in types:
         files_grabbed.extend(glob(DOCUMENT_ROOT + files))
     for _file in files_grabbed:
-        if not is_cached(_file):  # If we already have it cached, don't re-cache. Use clear_cache to force
-            compress(_file)
+        super_path = relpath(_file)[d_root_length:]
+        if not is_cached(super_path):  # If we already have it cached, don't re-cache. Use clear_cache to force
+            compress(super_path)
 
 
 def clear_cache():
-    files_grabbed = glob(DOCUMENT_ROOT + "*.gz")
+    files_grabbed = glob(CACHE_ROOT + "*.gz")
     for _file in files_grabbed:
         remove(_file)
 
 
-def is_cached(path):
-    if path is None: return False
-    return isfile(path + ".gz")
+def is_cached(_file):
+    if _file is None: return False
+    return isfile(CACHE_ROOT + _file + ".gz")
