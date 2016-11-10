@@ -6,10 +6,8 @@ class Client:
     admin = False
 
     def __init__(self, server, conn, addr):
-        print "Connected:", addr
-        if ADMIN_LIST.__contains__(addr[0]):
-            print addr, "is Admin."
-            self.admin = True
+        self.admin = ADMIN_LIST.__contains__(addr[0])
+        print "Connected:", addr, ("is Admin" if self.admin else "")
         self.conn = conn
         self.addr = addr
         while 1:

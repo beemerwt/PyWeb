@@ -38,8 +38,6 @@ def sort_by_q(data):
 
 
 class Response:
-    reqline = ""
-
     def __init__(self, request):
         self.client = request.client
         self.major_ver = request.request['HTTP-Version'][0]
@@ -48,40 +46,77 @@ class Response:
         self.path = get_safe(request.request['Request-URI'])
         self.method = request.request['Method']
         self.status_code = 500  # Default to internal server error.
-        if self.method == "GET":
-            self.status_code = FileManager.check(self.path)
 
-    def generate(self):
+    # HTTP = GET,TRACE,OPTIONS,POST,HEAD
+    # ADMIN = PUT,DELETE,CONNECT
+    def get(self):
         general_header = General()
         response_header = HResponse(etag=get_checksum(self.path))
         entity_header = Entity()
         message_body = ""
-        if self.method == "GET":
-            if self.status_code == 404:
-                response_header.retry = 120
-                entity_header.c_length = 0
-            elif self.status_code == 200:
-                general_header.cach = "max-age=120"
-                entity_header.c_type = get_type(self.path)
-                entity_header.c_length = FileManager.size(self.path)
-                entity_header.c_encoding = "gzip"
-                response_header.retry = 120
-                message_body += FileManager.open(self.path).read()
-                message_body += CRLF
-        elif self.method == "OPTIONS":
-            self.status_code = 200
-            entity_header.allow = ", ".join(ALLOW)
-            if self.client.admin:
-                entity_header.allow += ", ".join(ALLOW_ADMIN)
-        else:
+        self.status_code = FileManager.check(self.path)
+        if self.status_code == 404:
+            response_header.retry = 120
             entity_header.c_length = 0
+        elif self.status_code == 200:
+            general_header.cach = "max-age=120"
+            entity_header.c_type = get_type(self.path)
+            entity_header.c_length = FileManager.size(self.path)
+            entity_header.c_encoding = "gzip"
+            response_header.retry = 120
+            message_body += FileManager.open(self.path).read()
+            message_body += CRLF
+        return self.dispatch(message_body, general_header, response_header, entity_header)
 
-        general_header.update()
-        entity_header.update()
-        response_header = response_header.generate()
-        self.reqline = self.response_ver + SP + str(self.status_code) + SP + STATUS_CODE[self.status_code] + CRLF
-        print "Responding:", self.reqline
-        return self.reqline + general_header.header + response_header + entity_header.header + CRLF + message_body
+    def options(self):
+        self.status_code = 200
+        general_header = General()
+        response_header = HResponse()
+        entity_header = Entity()
+        entity_header.allow = ", ".join(ALLOW)
+        if self.client.admin:
+            entity_header.allow += ", ".join(ALLOW_ADMIN)
+        return self.dispatch(None, general_header, response_header, entity_header)
+
+    def access_denied(self):
+        self.status_code = 403
+        general_header = General()
+        response_header = HResponse()
+        entity_header = Entity(c_len=0)
+        return self.dispatch(None, general_header, response_header, entity_header)
+
+    def not_implemented(self):
+        self.status_code = 501
+        return self.dispatch(None, General(), HResponse(), Entity(c_len=0))
+
+    def dispatch(self, message_body, *headers):
+        reqline = self.response_ver + SP + str(self.status_code) + SP + STATUS_CODE[self.status_code] + CRLF
+        headline = ""
+        for header in headers:
+            header.update()
+            headline += header.header
+        if message_body is None:
+            message_body = ""  # Reduces collisions, makes code easier to read.
+
+        print "Responding:", reqline
+        return reqline + headline + CRLF + message_body
+
+    def can(self, perm):
+        if ALLOW.__contains__(perm): return True
+        if ALLOW_ADMIN.__contains__(perm) and self.client.admin: return True
+        return False
+
+    def generate(self):
+        if not self.can(self.method): return self.access_denied()
+        if self.method == "GET":        return self.get()
+        if self.method == "OPTIONS":    return self.options()
+        if self.method == "TRACE":      return self.not_implemented()
+        if self.method == "POST":       return self.not_implemented()
+        if self.method == "HEAD":       return self.not_implemented()
+        if self.method == "PUT":        return self.not_implemented()
+        if self.method == "DELETE":     return self.not_implemented()
+        if self.method == "CONNECT":    return self.not_implemented()
+        return self.dispatch(None, Entity(c_len=0), General(), HResponse())
 
 
 class Request:

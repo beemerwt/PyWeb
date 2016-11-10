@@ -21,7 +21,6 @@ def get_cached_file(_file):
 def get_checksum(path):
     if path is None: return
     path = get_cached_file(path)
-    print "Getting checksum of", path
     if path in CHECKSUMS: return CHECKSUMS[path]
     c = md5(open(path, 'rb').read()).hexdigest()
     CHECKSUMS[path] = c

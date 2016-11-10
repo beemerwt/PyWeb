@@ -77,26 +77,29 @@ class Entity:
 class Response:
     def __init__(self, ranges=None, age=None, etag=None, location=None, proxy_authenticate=None,
                  retry=None, vary=None, www_authenticate=None):
+        self.header = ""
         self.ranges = ranges
         self.start_time = time() if age else None
         self.age = age
         self.etag = "\"" + etag + "\"" if etag is not None else None
         self.location = location
-        self.proxy_authenticate = proxy_authenticate
+        self.p_authenticate = proxy_authenticate
         self.retry = retry
         self.server = 'PyWeb'
         self.vary = vary
         self.www_authenticate = www_authenticate
 
-    def generate(self):
-        header = ""
-        if self.ranges:             header += "Accept-Ranges: {}".format(self.ranges) + LF
-        if self.age:                header += "Age: {}".format(int(round(time() - self.start_time))) + LF
-        if self.etag:               header += "E-Tag: {}".format(self.etag) + LF
-        if self.location:           header += "Location: {}".format(self.location) + LF
-        if self.proxy_authenticate: header += "Proxy-Authenticate: {}".format(self.proxy_authenticate) + LF
-        if self.retry:              header += "Retry: {}".format(self.retry) + LF
-        if self.server:             header += "Server: {}".format(self.server) + LF
-        if self.vary:               header += "Vary: {}".format(self.vary) + LF
-        if self.www_authenticate:   header += "WWW-Authenticate: {}".format(self.www_authenticate) + LF
-        return header
+    def update(self):
+        self.header = ""
+        if self.ranges is not None:           self.header += "Accept-Ranges: {}".format(self.ranges) + LF
+        if self.age is not None:              self.header += "Age: {}".format(int(round(time() - self.start_time))) + LF
+        if self.etag is not None:             self.header += "E-Tag: {}".format(self.etag) + LF
+        if self.location is not None:         self.header += "Location: {}".format(self.location) + LF
+        if self.p_authenticate is not None:   self.header += "Proxy-Authenticate: {}".format(self.p_authenticate) + LF
+        if self.retry is not None:            self.header += "Retry: {}".format(self.retry) + LF
+        if self.server is not None:           self.header += "Server: {}".format(self.server) + LF
+        if self.vary is not None:             self.header += "Vary: {}".format(self.vary) + LF
+        if self.www_authenticate is not None: self.header += "WWW-Authenticate: {}".format(self.www_authenticate) + LF
+
+    def setvar(self, var, val):
+        setattr(self, var, val)
