@@ -2,7 +2,7 @@ from HTTP import handle
 
 
 class Client:
-    def __init__(self, conn, addr):
+    def __init__(self, server, conn, addr):
         print "Connected:", addr
         self.conn = conn
         self.addr = addr
@@ -12,6 +12,7 @@ class Client:
             self.reply(addr, data)
         print "Disconnected:", self.addr
         self.conn.close()
+        server.clients[addr] = None
 
     def reply(self, addr, data):
         resp = handle(addr, data).generate()
