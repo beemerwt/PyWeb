@@ -3,7 +3,7 @@ from re import compile
 
 import FileManager
 from Cacher import get_checksum
-from Config import CRLF  # DocumentRoot Constant
+from Config import CRLF, ALLOW, ALLOW_ADMIN  # DocumentRoot Constant
 from FileManager import get_safe
 from Headers import Entity, General, Response as HResponse
 from Status import STATUS_CODE
@@ -38,7 +38,10 @@ def sort_by_q(data):
 
 
 class Response:
+    reqline = ""
+
     def __init__(self, request):
+        self.client = request.client
         self.major_ver = request.request['HTTP-Version'][0]
         self.minor_ver = request.request['HTTP-Version'][1]
         self.response_ver = "HTTP/{}.{}".format(self.major_ver, self.minor_ver)
@@ -47,7 +50,6 @@ class Response:
         self.status_code = 500  # Default to internal server error.
         if self.method == "GET":
             self.status_code = FileManager.check(self.path)
-        self.reqline = self.response_ver + SP + str(self.status_code) + SP + STATUS_CODE[self.status_code] + CRLF
 
     def generate(self):
         general_header = General()
@@ -66,12 +68,18 @@ class Response:
                 response_header.retry = 120
                 message_body += FileManager.open(self.path).read()
                 message_body += CRLF
+        elif self.method == "OPTIONS":
+            self.status_code = 200
+            entity_header.allow = ", ".join(ALLOW)
+            if self.client.admin:
+                entity_header.allow += ", ".join(ALLOW_ADMIN)
         else:
             entity_header.c_length = 0
 
         general_header.update()
         entity_header.update()
         response_header = response_header.generate()
+        self.reqline = self.response_ver + SP + str(self.status_code) + SP + STATUS_CODE[self.status_code] + CRLF
         print "Responding:", self.reqline
         return self.reqline + general_header.header + response_header + entity_header.header + CRLF + message_body
 
@@ -87,8 +95,8 @@ class Request:
         'max_forwards': None,
     }
 
-    def __init__(self, addr, data):
-        self.addr = addr
+    def __init__(self, client, data):
+        self.client = client
         self.lines = data.splitlines()
         self.message = request_line.match(self.lines[0]).groups(0)
         self.request = {  # Request Line
@@ -96,7 +104,7 @@ class Request:
             'Request-URI': self.message[1],
             'HTTP-Version': [self.message[2], self.message[3]]
         }
-        print "Request Received:", self.lines[0], addr
+        print "Request Received:", self.lines[0], client.addr
         for line in self.lines:
             # If it exists, use it, if we're being fooled, don't.
             if self.lines[0] == line:  # Skip the first line
@@ -190,6 +198,6 @@ class Request:
         return getattr(self, item, False)
 
 
-def handle(addr, data):
-    request = Request(addr, data)
+def handle(client, data):
+    request = Request(client, data)
     return Response(request)
