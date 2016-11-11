@@ -1,15 +1,13 @@
 import gzip
 import shutil
+from distutils.dir_util import mkpath
 from glob import glob
 from hashlib import md5
-from os import remove, makedirs
-from os.path import isfile, relpath, exists, dirname
+from os import remove
+from os.path import isfile, relpath, isdir, dirname
 
-from Config import DOCUMENT_ROOT
+from Config import DOCUMENT_ROOT, CACHE_ROOT
 from Definitions import CHECKSUMS
-
-types = ("*.html", "*.htm", "*.php")
-CACHE_ROOT = "../cache/"
 
 
 def get_cached_file(_file):
@@ -23,7 +21,6 @@ def get_cached_file(_file):
 def get_checksum(path):
     if path is None: return
     path = get_cached_file(path)
-    print "Getting checksum of", path
     if path in CHECKSUMS: return CHECKSUMS[path]
     c = md5(open(path, 'rb').read()).hexdigest()
     CHECKSUMS[path] = c
@@ -32,8 +29,8 @@ def get_checksum(path):
 
 def compress(_file):
     print "Creating cache of file:", _file
-    if not exists(CACHE_ROOT + _file):
-        makedirs(dirname(CACHE_ROOT + _file))
+    if not isdir(CACHE_ROOT + _file):
+        mkpath(dirname(CACHE_ROOT + _file))
     with open(relpath(DOCUMENT_ROOT + _file), 'rb') as f_in, gzip.open(CACHE_ROOT + _file + '.gz', 'wb') as f_out:
         shutil.copyfileobj(f_in, f_out)
 
@@ -48,8 +45,7 @@ def cache_all():
     print "Caching all resources in", CACHE_ROOT
     files_grabbed = []
     d_root_length = DOCUMENT_ROOT.__len__()
-    for files in types:
-        files_grabbed.extend(glob(DOCUMENT_ROOT + files))
+    files_grabbed.extend(glob(DOCUMENT_ROOT + "*.*"))
     for _file in files_grabbed:
         super_path = relpath(_file)[d_root_length:]
         if not is_cached(super_path):  # If we already have it cached, don't re-cache. Use clear_cache to force
