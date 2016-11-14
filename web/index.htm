@@ -1,12 +1,12 @@
 <~
-import re
-import random
-def repl(m):
-inner_word = list(m.group(2))
-random.shuffle(inner_word)
-return m.group(1) + "".join(inner_word) + m.group(3)
-text = "This is how you effectively use BOA script."
-print re.sub(r"(\w)(\w+)(\w)", repl, text)
+    import re
+    import random
+    def repl(m):
+        inner_word = list(m.group(2))
+        random.shuffle(inner_word)
+        return m.group(1) + "".join(inner_word) + m.group(3)
+    text = "This is how you effectively use BOA script."
+    print re.sub(r"(\w)(\w+)(\w)", repl, text)
 ~>
 
 <html>
