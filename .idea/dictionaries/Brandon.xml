@@ -2,7 +2,9 @@
   <dictionary name="Brandon">
     <words>
       <w>addr</w>
+      <w>callbefore</w>
       <w>crlf</w>
+      <w>fetchobj</w>
       <w>hashfile</w>
       <w>prog</w>
       <w>reqline</w>

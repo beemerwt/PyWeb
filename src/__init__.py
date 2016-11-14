@@ -1,14 +1,14 @@
 import socket
 
-from Cacher import cache_all
 from Definitions import HOST, PORT
+from Plugins import get_plugins
 from Server import Server
 
 isRunning = True
+get_plugins()
 
 
 def __init__():
-    cache_all()
     while isRunning:
         sock = socket.socket()
         sock.bind((HOST, PORT))
@@ -17,5 +17,6 @@ def __init__():
         server.add(conn, addr)
 
 
-server = Server()
-__init__()
+if __name__ == "__main__":
+    server = Server()
+    __init__()
