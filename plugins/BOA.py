@@ -5,10 +5,11 @@ from contextlib import contextmanager
 from gzip import GzipFile
 
 import FileManager
+from Config import CRLF
 from Plugins import create_delegate
 
-Fetcher = create_delegate("FileManager", "FetchedFile")
-
+Get_Response = create_delegate("Responses", "Get")
+command_line = re.compile("(    |\t){1}", flags=re.U)
 
 # When getting the "served" part of a file, get rid of the BOAscript
 # Assign Parser.read() to read bytes, as the FileManager does normally
@@ -24,52 +25,50 @@ def stdout_io(stdout=None):
     sys.stdout = old
 
 
-@Fetcher.callback
-class Parser:
-    command_line = re.compile("(    |\t){1}", flags=re.U)
-    globals = {}
-    locals = {}
+@Get_Response.callback
+def parser(returned_get):
+    if returned_get.status_code != 200: return None  # If and only if we're serving the file.
+    check_ext = FileManager.get_extension(returned_get.fetched.path)
+    if check_ext != ".htm" and check_ext != ".php" and check_ext != ".html": return None
 
-    def __init__(self, fetchobj):
-        check_ext = FileManager.get_extension(fetchobj.path)
-        self.parent = fetchobj
-        if check_ext != ".htm" and check_ext != ".php" and check_ext != ".html": return
-        self.served = self.parent.original
-        start_instances = [m.start() for m in re.finditer('<~', self.served)]
-        end_instances = [m.start() for m in re.finditer('~>', self.served)]
+    global_ = {}
+    local_ = {}
 
-        # Removes all BOA script and replaces it with it's executed implementation.
-        for i in range(len(start_instances)):
-            try:
-                remove = self.parent.original[start_instances[i]:end_instances[i] + 2]
-            except IndexError:
-                remove = self.parent.original[start_instances[i]:]
-            if remove is not None:
-                self.served = self.served.replace(remove, self.parse(remove))
+    served = returned_get.fetched.original
+    start_instances = [m.start() for m in re.finditer('<~', served)]
+    end_instances = [m.start() for m in re.finditer('~>', served)]
 
-        encoded = StringIO()
-        with GzipFile(fileobj=encoded, mode="w") as f:
-            f.write(self.served)
-        self.parent.encoded = encoded.getvalue()
-        self.parent.size = len(encoded.getvalue())
-
-    def __getattr__(self, item):
-        return getattr(self.parent, item)
-
-    # Parses and executes all BOA script
-    def parse(self, code):
-        code = code.replace("<~", "").replace("~>", "").splitlines()
-        code[0] = code[0].lstrip()
-        for i in range(len(code)):
-            code[i] = self.command_line.sub("", code[i], 1)
-        code = "\n".join(code)
-        with stdout_io() as s:
-            try:
-                exec (code, self.globals, self.locals)
-            except Exception as e:
-                return str(e)
-        # TRY to reduce errors.
+    # Removes all BOA script and replaces it with it's executed implementation.
+    for i in range(len(start_instances)):
         try:
-            return s.getvalue()
-        except UnicodeError:
-            return ""
+            remove = returned_get.fetched.original[start_instances[i]:end_instances[i] + 2]
+        except IndexError:
+            remove = returned_get.fetched.original[start_instances[i]:]
+        if remove is not None:
+            served = served.replace(remove, parse(remove, global_, local_))
+
+    encoded = StringIO()
+    with GzipFile(fileobj=encoded, mode="w") as f:
+        f.write(served)
+    returned_get.message_body = encoded.getvalue() + CRLF
+    returned_get.entity_header.c_length = len(encoded.getvalue())
+    return returned_get
+
+
+# Parses and executes all BOA script
+def parse(code, *scope):
+    code = code.replace("<~", "").replace("~>", "").splitlines()
+    code[0] = code[0].lstrip()
+    for i in range(len(code)):
+        code[i] = command_line.sub("", code[i], 1)
+    code = "\n".join(code)
+    with stdout_io() as s:
+        try:
+            exec code in scope[0], scope[1]
+        except Exception as e:
+            return str(e)
+    # TRY to reduce errors.
+    try:
+        return s.getvalue()
+    except UnicodeError:
+        return ""

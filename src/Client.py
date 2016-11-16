@@ -1,5 +1,5 @@
 from Config import ADMIN_LIST
-from HTTP import handle
+from Request import Request
 
 
 class Client:
@@ -19,5 +19,5 @@ class Client:
         server.clients[addr] = None
 
     def reply(self, data):
-        resp = handle(self, data).generate()
+        resp = Request(self, data).respond().generate()
         self.conn.sendall(resp)
