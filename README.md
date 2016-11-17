@@ -16,4 +16,4 @@ BOA stands for "Binary Object Access." Essentially, it allows you to generate HT
 3. Run \_\_init\_\_.py
 
 ## Dependencies
-There are no dependencies at this time. Everything is running off of native Python 2.7 code.
+- Python 2.7
