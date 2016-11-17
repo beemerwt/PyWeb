@@ -1,6 +1,6 @@
 import FileManager
 import Header
-from Config import CRLF, ALLOW, ALLOW_ADMIN  # DocumentRoot Constant
+from Config import CRLF, ALLOW, ALLOW_ADMIN, LOG_RESPONSE, LOG_RESPONSE_FULL  # DocumentRoot Constant
 from Status import STATUS_CODE
 
 SP = " "  # For more readability sake
@@ -34,9 +34,15 @@ class Response:
         self.entity_header.update()
         if message_body is None:
             message_body = ""  # Gets rid of errors, also makes code easier to read.
-        print "Responding:", reqline
-        return reqline + self.general_header.header + self.response_header.header + \
-               self.entity_header.header + CRLF + message_body
+
+        return_val = reqline + self.general_header.header + self.response_header.header + \
+                     self.entity_header.header + CRLF + message_body
+
+        if LOG_RESPONSE:
+            print "Responding:", reqline
+        if LOG_RESPONSE_FULL:
+            print return_val
+        return return_val
 
     def __setattr__(self, key, value):
         self.__dict__[key] = value

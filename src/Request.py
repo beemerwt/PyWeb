@@ -2,6 +2,7 @@
 from re import compile
 
 import Responses
+from Config import LOG_REQUEST
 
 request_line = compile("(\w+) (\S+) HTTP/(\d).(\d)")
 header_line = compile("([\w-]+):")
@@ -38,7 +39,8 @@ class Request:
             'Request-URI': self.message[1],
             'HTTP-Version': [self.message[2], self.message[3]]
         }
-        print "Request Received:", self.lines[0], client.addr
+        if LOG_REQUEST:
+            print "Request Received:", self.lines[0], client.client_address
         for line in self.lines:
             # If it exists, use it, if we're being fooled, don't.
             if self.lines[0] == line:  # Skip the first line

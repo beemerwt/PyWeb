@@ -2,6 +2,7 @@ import sys
 from glob import glob
 from os.path import basename
 
+from Config import LOG_PLUGINS
 from Delegate import Delegate
 
 sys.path.append("../plugins/")
@@ -22,4 +23,5 @@ def get_plugins():
     for item in list_imports:
         plugin = basename(item).split(".")[0]
         __import__(plugin)
-        print "Plugin \"" + plugin + "\" loaded."
+        if LOG_PLUGINS:
+            print "Plugin \"" + plugin + "\" loaded."

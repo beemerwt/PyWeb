@@ -57,7 +57,7 @@ def parser(returned_get):
 
 # Parses and executes all BOA script
 def parse(code, *scope):
-    code = code.replace("<~", "").replace("~>", "").splitlines()
+    code = code.replace("<~", "", 1).replace("~>", "", 1).splitlines()
     code[0] = code[0].lstrip()
     for i in range(len(code)):
         code[i] = command_line.sub("", code[i], 1)
