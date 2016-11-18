@@ -62,6 +62,9 @@ class Get(Response):
         if not FileManager.allowed_access(self.client, self.fetched.path):
             self.status_code = 403
 
+        # Since no file takes precedence in a multi-threaded system,
+        # we don't need to implement "Accept" preferences.
+
         if self.status_code == 404:
             self.response_header.etag = self.fetched.checksum
             self.response_header.retry = 120
@@ -78,7 +81,7 @@ class Get(Response):
             self.entity_header.c_len = 0
 
     def generate(self):
-        return self.dispatch(self.message_body)
+        return Response.dispatch(self, self.message_body)
 
 
 class Options(Response):

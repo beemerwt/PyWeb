@@ -1,5 +1,5 @@
 # This class is responsible for handling Requests.
-from re import compile
+from re import compile, match
 
 import Responses
 from Config import LOG_REQUEST
@@ -28,19 +28,26 @@ class Request:
         'match': None,
         'unmod_since': None,
         'max_forwards': None,
+        'expect': None
     }
+
+    accept_types = []
+
+    _host = None
 
     def __init__(self, client, data):
         self.client = client
         self.lines = data.splitlines()
+
+        if LOG_REQUEST:
+            print "Request Received:", client.client_address
+
         self.message = request_line.match(self.lines[0]).groups(0)
         self.request = {  # Request Line
             'Method': self.message[0],
             'Request-URI': self.message[1],
             'HTTP-Version': [self.message[2], self.message[3]]
         }
-        if LOG_REQUEST:
-            print "Request Received:", self.lines[0], client.client_address
         for line in self.lines:
             # If it exists, use it, if we're being fooled, don't.
             if self.lines[0] == line:  # Skip the first line
@@ -48,12 +55,17 @@ class Request:
             func = header_line.match(line)
             if func is not None:
                 func = func.groups()[0].replace("-", "_").lower()  # Convert message to func-readable
+                if func == "from":
+                    self._from(line)
                 if self.__contains__(func):
                     self[func](line)
 
     # For all functions below, data is a string of the full line.
+
+    # Since this is a multi-threaded server, we do not need to implement "Accept" preferences.
+    # All files get served as quickly as possible as soon as the message is received.
     def accept(self, data):
-        return
+        pass
 
     def accept_charset(self, data):
         data = data.replace('Accept-Charset:', ' ').strip().split(", ")
@@ -74,58 +86,64 @@ class Request:
         self.enforces['language'] = sort_by_q(data)
 
     def authorization(self, data):
-        return
+        pass
 
     def cache_control(self, data):
-        return
+        pass
 
     def connection(self, data):
-        return
+        pass
 
     def expect(self, data):
-        return
+        data = match("(?=) (\S+)", data).groups(0)
+        if data:
+            self.enforces['expect'] = data
 
+    # We will not be using FROM because it is simply too insecure.
+    # Provided that we receive a request with "From," it is usually from a bot connection.
+    # In this case, we'll do nothing as to not prevent anything "bad" from happening.
+    # If you would like to change this behavior, create a plugin delegate for "Request", "Request"
     def _from(self, data):
-        return
+        pass
 
     def host(self, data):
-        return
+        self._host = match("Host: (\S+)", data).groups(0)
 
     def if_match(self, data):
-        return
+        pass
 
     def if_modified_since(self, data):
-        return
+        pass
 
     def if_none_match(self, data):
-        return
+        pass
 
     def if_range(self, data):
-        return
+        pass
 
     def if_unmodified_since(self, data):
-        return
+        pass
 
     def max_forwards(self, data):
-        return
+        pass
 
     def proxy_authorization(self, data):
-        return
+        pass
 
     def range(self, data):
-        return
+        pass
 
     def referer(self, data):
-        return
+        pass
 
     def te(self, data):
-        return
+        pass
 
     def user_agent(self, data):
-        return
+        pass
 
     def upgrade_insecure_requests(self, data):
-        return
+        pass
 
     def __getitem__(self, name):
         return getattr(self, name)
@@ -136,4 +154,15 @@ class Request:
     def respond(self):
         if not hasattr(Responses, self.request['Method'].title()):
             return Responses.not_implemented(self)
+
+        # According to the HTTP Guidelines: We MUST reply 400 if no Host was provided.
+        if self._host is None:
+            return Responses.error_response(self, 400)
+
+        # Since we are a multi-threaded server, we do not implement typical HTTP guidelines
+        # Instead, we are implementing a kind of T/TCP which does not support 100-Continue
+        # Good thing, 100-Continue doesn't really exist anymore.
+        if self.enforces['expect']:
+            return Responses.error_response(self, 417)
+
         return getattr(Responses, self.request['Method'].title())(self)
